@@ -9,13 +9,13 @@ import cv2
 import numpy as np
 
 # ─────────────────────────────────────────────
-#  НАЛАШТУВАННЯ КООРДИНАТ ТА ПАРАМЕТРІВ
+#  COORDINATE AND PARAMETER SETTINGS
 # ─────────────────────────────────────────────
 SCREEN_W = 2340
 SCREEN_H = 1080
 
 CENTER_X = SCREEN_W // 2  # 1170
-DEADZONE_X = 60           # точність курсу
+DEADZONE_X = 60           # Heading accuracy
 
 OK_TAP_X, OK_TAP_Y = 1500, 1000
 HARVEST_TAP_X, HARVEST_TAP_Y = 1200, 570
@@ -33,7 +33,7 @@ STATE_WALKING   = "WALKING"
 STATE_COLLECTING = "COLLECTING" 
 
 # ─────────────────────────────────────────────
-#  ТЕХНІЧНІ ФУНКЦІЇ (ADB ТА ГРАФІКА)
+#  UTILITY FUNCTIONS (ADB AND GRAPHICS)
 # ─────────────────────────────────────────────
 
 def check_adb():
@@ -49,18 +49,18 @@ def swipe(x1, y1, x2, y2, duration_ms):
     subprocess.run(["adb", "shell", "input", "swipe", str(x1), str(y1), str(x2), str(y2), str(duration_ms)], capture_output=True)
 
 def take_screenshot_cv():
-    """Надійне отримання PNG-кадру через exec-out для Windows."""
+    """Reliable capture of PNG frame via exec-out on Windows."""
     try:
         res = subprocess.run(["adb", "exec-out", "screencap", "-p"], capture_output=True, timeout=3)
         if not res.stdout or len(res.stdout) < 100:
-            print("[DEBUG] Помилка: Отримано пустий потік даних від ADB.")
+            print("[DEBUG] Error: received empty ADB stream.")
             return None
         
         img_buffer = np.frombuffer(res.stdout, dtype=np.uint8)
         img = cv2.imdecode(img_buffer, cv2.IMREAD_COLOR)
         return img
     except Exception as e:
-        print(f"[DEBUG] Виняток при знятті скріншоту: {e}")
+        print(f"[DEBUG] Screenshot exception: {e}")
         return None
 
 def find_ore_template(scene_img, template_img, threshold=0.70):
@@ -69,9 +69,9 @@ def find_ore_template(scene_img, template_img, threshold=0.70):
     
     res = cv2.matchTemplate(scene_img, template_img, cv2.TM_CCOEFF_NORMED)
     
-    # ВСІ пікселі, де збіг вищий за поріг
+    # ALL pixels where match is above the threshold
     loc = np.where(res >= threshold)
-    x_indices = loc[1] # координати по осі X
+    x_indices = loc[1] # coordinates on the X axis
     
     if len(x_indices) == 0:
         return None
@@ -80,7 +80,7 @@ def find_ore_template(scene_img, template_img, threshold=0.70):
     best_center_x = None
     min_dist = float('inf')
     
-    # пошук найближчого до центру
+    # find the closest match to the center
     for x in x_indices:
         center_text_x = x + (template_w // 2)
         dist = abs(center_text_x - CENTER_X)
@@ -100,7 +100,7 @@ def is_ok_button_visible(scene_img):
         return False
 
 # ─────────────────────────────────────────────
-#  МАНІПУЛЯЦІЇ КАМЕРОЮ ТА РУХОМ
+#  CAMERA AND MOVEMENT CONTROL
 # ─────────────────────────────────────────────
 
 def camera_rotate_search():
@@ -117,26 +117,26 @@ def make_forward_step(duration):
 
 
 # ─────────────────────────────────────────────
-#  ГОЛОВНИЙ ЦИКЛ БОТА
+#  MAIN BOT LOOP
 # ─────────────────────────────────────────────
 
 def main():
     TOTAL_ORES_COUNTER = 0
     START_TIME = time.perf_counter()
 
-    print("[INIT] Запуск за 5 секунд.")
+    print("[INIT] Starting in 5 seconds.")
     time.sleep(5)
     
     if not check_adb():
-        print("[ERR] ADB пристрій не знайдено.")
+        print("[ERR] ADB device not found.")
         sys.exit(1)
         
     template_img = cv2.imread('ore_template.png', cv2.IMREAD_COLOR)
     if template_img is None:
-        print("[ERR] Не вдалося знайти файл 'ore_template.png'.")
+        print("[ERR] Failed to find 'ore_template.png'.")
         sys.exit(1)
         
-    print("[INIT] Усе готово.")
+    print("[INIT] Ready.")
     
     state = STATE_SEARCHING
     blind_steps_count = 0
@@ -144,7 +144,7 @@ def main():
     while True:
         img = take_screenshot_cv()
         if img is None:
-            print("[DEBUG] Скріншот не отримано, чекаємо...")
+            print("[DEBUG] Screenshot not obtained, waiting...")
             time.sleep(0.1)
             continue
             
@@ -154,11 +154,11 @@ def main():
         if state == STATE_SEARCHING:
             ore_x = find_ore_template(img, template_img)
             if ore_x is not None:
-                print(f"[SEARCH] Знайдено силует руди (X: {ore_x}).")
+                print(f"[SEARCH] Ore silhouette found (X: {ore_x}).")
                 state = STATE_AIMING
                 blind_steps_count = 0
             else:
-                print(f"[SEARCH] Тексту немає. Поворот камери.")
+                print(f"[SEARCH] No text found. Rotating camera.")
                 make_forward_step(200)
                 camera_rotate_search()
                 time.sleep(0.1)  
@@ -166,7 +166,7 @@ def main():
         elif state == STATE_AIMING:
             ore_x = find_ore_template(img, template_img)
             if ore_x is None:
-                print("[AIM] Ціль втрачено при центруванні. Повернення до сканування.")
+                print("[AIM] Target lost during centering. Returning to scan.")
                 state = STATE_SEARCHING
                 continue
                 
@@ -174,22 +174,22 @@ def main():
             right_bound = CENTER_X + DEADZONE_X
             
             if ore_x < left_bound:
-                print(f"[AIM] Руда лівіше центру ({ore_x} < {left_bound}). Поворот L.")
+                print(f"[AIM] Ore left of center ({ore_x} < {left_bound}). Turning L.")
                 camera_correct_left()
                 time.sleep(0.1)
             elif ore_x > right_bound:
-                print(f"[AIM] Руда правіше центру ({ore_x} > {right_bound}). Поворот R.")
+                print(f"[AIM] Ore right of center ({ore_x} > {right_bound}). Turning R.")
                 camera_correct_right()
                 time.sleep(0.1)
             else:
-                print("[AIM] Ціль відцентрована. Початок руху.")
+                print("[AIM] Target centered. Starting movement.")
                 state = STATE_WALKING
 
         elif state == STATE_WALKING:
             ore_x = find_ore_template(img, template_img)
             
             if ore_x is None:
-                print("[WALK] Напис зник. Можливо, ми підійшли впритул. Фінальний крок...")
+                print("[WALK] Text disappeared. Maybe we're close. Final step...")
                 make_forward_step(1000)
                 time.sleep(0.3)
                 
@@ -198,8 +198,8 @@ def main():
                     state = STATE_COLLECTING
                 else:
                     blind_steps_count += 1
-                    if blind_steps_count > 2:
-                        print("[WALK] Кнопка не з'явилася, ціль остаточно втрачено. Скидання.")
+                    if blind_steps_count > 1:
+                        print("[WALK] Button did not appear, target lost. Resetting.")
                         state = STATE_SEARCHING
                 continue
                 
@@ -207,20 +207,20 @@ def main():
             right_bound = CENTER_X + DEADZONE_X
             
             if ore_x < left_bound or ore_x > right_bound:
-                print("[WALK] Збиття з курсу під час ходьби. Коригування камери.")
+                print("[WALK] Course drifted during walking. Correcting camera.")
                 state = STATE_AIMING
                 continue
                 
-            print("[WALK] Курс правильний. Великий крок вперед...")
+            print("[WALK] Course correct. Large step forward...")
             make_forward_step(1750)
             time.sleep(0.1)
 
         elif state == STATE_COLLECTING:
-            print("[HARVEST] Жовта кнопка ОК на екрані.")
+            print("[HARVEST] Yellow OK button on screen.")
             tap(OK_TAP_X, OK_TAP_Y)
             time.sleep(0.1)
             
-            print("[HARVEST] ЗБІР...............................................")
+            print("[HARVEST] HARVEST...............................................")
             for _ in range(15):
                 tap(HARVEST_TAP_X, HARVEST_TAP_Y)
                 time.sleep(0.1)
@@ -229,17 +229,17 @@ def main():
             EXECUTION_TIME = (time.perf_counter() - START_TIME) / 60
             ORE_COEFFICIENT = TOTAL_ORES_COUNTER / EXECUTION_TIME
             print("*" * 50)
-            print("*" * 20 + "СТАТИСТИКА" + "*" * 20)
-            print(f"ЧАС: {EXECUTION_TIME:.2f} хв.")
-            print(f"КІЛЬКІСТЬ РУД: {TOTAL_ORES_COUNTER}")
-            print(f"КР: {ORE_COEFFICIENT:.2f} руд/хв")
+            print("*" * 20 + "STATISTICS" + "*" * 20)
+            print(f"TIME: {EXECUTION_TIME:.2f} min.")
+            print(f"ORE COUNT: {TOTAL_ORES_COUNTER}")
+            print(f"RATE: {ORE_COEFFICIENT:.2f} ores/min")
             print("*" * 50)
             print("*" * 50)
-            print("[HARVEST] Збір завершено. Пошук нових цілей.")
+            print("[HARVEST] Harvest complete. Searching for next targets.")
             state = STATE_SEARCHING
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\n[BOT] Роботу завершено користувачем.")
+        print("\n[BOT] Bot stopped by user.")
