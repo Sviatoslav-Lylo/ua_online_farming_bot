@@ -68,13 +68,28 @@ def find_ore_template(scene_img, template_img, threshold=0.70):
         return None
     
     res = cv2.matchTemplate(scene_img, template_img, cv2.TM_CCOEFF_NORMED)
-    _, max_val, _, max_loc = cv2.minMaxLoc(res)
     
-    if max_val >= threshold:
-        template_w = template_img.shape[1]
-        center_text_x = max_loc[0] + (template_w // 2)
-        return center_text_x
-    return None
+    # ВСІ пікселі, де збіг вищий за поріг
+    loc = np.where(res >= threshold)
+    x_indices = loc[1] # координати по осі X
+    
+    if len(x_indices) == 0:
+        return None
+        
+    template_w = template_img.shape[1]
+    best_center_x = None
+    min_dist = float('inf')
+    
+    # пошук найближчого до центру
+    for x in x_indices:
+        center_text_x = x + (template_w // 2)
+        dist = abs(center_text_x - CENTER_X)
+        
+        if dist < min_dist:
+            min_dist = dist
+            best_center_x = center_text_x
+            
+    return best_center_x
 
 def is_ok_button_visible(scene_img):
     if scene_img is None: return False
