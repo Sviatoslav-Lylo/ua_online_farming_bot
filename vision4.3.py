@@ -15,7 +15,7 @@ SCREEN_W = 2340
 SCREEN_H = 1080
 
 CENTER_X = SCREEN_W // 2  # 1170
-DEADZONE_X = 60           # Heading accuracy
+DEADZONE_X = 100           # Heading accuracy
 
 OK_TAP_X, OK_TAP_Y = 1500, 1000
 HARVEST_TAP_X, HARVEST_TAP_Y = 1200, 570
