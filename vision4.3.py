@@ -198,6 +198,8 @@ def main():
     TOTAL_ORES_COUNTER = 0
     START_TIME = time.perf_counter()
 
+    LAST_NOTIFICATION_CLEAR = time.perf_counter()
+
     print("[INIT] Starting in 5 seconds.")
     time.sleep(5)
     
@@ -215,6 +217,11 @@ def main():
     state = STATE_SEARCHING
     
     while True:
+        if time.perf_counter() - LAST_NOTIFICATION_CLEAR >= NOTIFICATION_INTERVAL_SEC:
+            print("[ANTI-BLOCK] Dismissing potential reward notification.")
+            tap(UNWANTED_NOTIFICATION_X, UNWANTED_NOTIFICATION_Y)
+            LAST_NOTIFICATION_CLEAR = time.perf_counter()
+
         img = take_screenshot_cv()
         if img is None:
             print("[DEBUG] Screenshot not obtained, waiting...")
