@@ -139,7 +139,6 @@ def main():
     print("[INIT] Ready.")
     
     state = STATE_SEARCHING
-    blind_steps_count = 0
     
     while True:
         img = take_screenshot_cv()
@@ -156,7 +155,6 @@ def main():
             if ore_x is not None:
                 print(f"[SEARCH] Ore silhouette found (X: {ore_x}).")
                 state = STATE_AIMING
-                blind_steps_count = 0
             else:
                 print(f"[SEARCH] No text found. Rotating camera.")
                 make_forward_step(200)
@@ -197,10 +195,8 @@ def main():
                 if is_ok_button_visible(img_check):
                     state = STATE_COLLECTING
                 else:
-                    blind_steps_count += 1
-                    if blind_steps_count > 1:
-                        print("[WALK] Button did not appear, target lost. Resetting.")
-                        state = STATE_SEARCHING
+                    print("[WALK] Button did not appear, target lost. Resetting.")
+                    state = STATE_SEARCHING
                 continue
                 
             left_bound = CENTER_X - DEADZONE_X
