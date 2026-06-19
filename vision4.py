@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import csv
-import datetime
+from datetime import datetime
 import io
 import os
 import sys
@@ -29,7 +29,7 @@ OK_COLOR_TOLERANCE = 25
 ROI_X1, ROI_Y1 = 1215, 960 # Range of interest (ROI)
 ROI_X2, ROI_Y2 = 1400, 1030
 
-RED_BACKGROUND_TARGET_RGB = (240, 40, 40) # coordinates for red background are the same as for "ok" button
+RED_BACKGROUND_TARGET_BGR = (40, 40, 240) # coordinates for red background are the same as for "ok" button
 RED_BACKGROUND_TOLERANCE = 25
 
 ORE_TEMPLATES = {
@@ -124,8 +124,8 @@ def classify_and_log_ore(scene_img, start_time):
         return
 
     # Step 1: Check for stolen state via pixel color first
-    pixel_bgr = scene_img[(ROI_Y1 + ROI_Y2) / 2, (ROI_X1 + ROI_X2) / 2]
-    is_red = all(abs(int(p) - int(t)) <= RED_BACKGROUND_TOLERANCE for p, t in zip(pixel_bgr, RED_BACKGROUND_TARGET_RGB))
+    pixel_bgr = scene_img[(ROI_Y1 + ROI_Y2) // 2, (ROI_X1 + ROI_X2) // 2]
+    is_red = all(abs(int(p) - int(t)) <= RED_BACKGROUND_TOLERANCE for p, t in zip(pixel_bgr, RED_BACKGROUND_TARGET_BGR))
     
     if is_red:
         ore_kind = "stolen"
@@ -304,6 +304,7 @@ def main():
 
 
             # DATA ANALYSIS INTERSECTION
+            time.sleep(0.5)
             post_harvest_img = take_screenshot_cv()
             classify_and_log_ore(post_harvest_img, START_TIME)
 
