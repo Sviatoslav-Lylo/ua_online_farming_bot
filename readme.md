@@ -25,12 +25,6 @@ It operates externally via ADB (Android Debug Bridge) and uses OpenCV Template M
 The bot operates as a continuous image-processing loop, fetching raw screen frames via adb exec-out screencap -p directly into memory. 
 It transitions dynamically between 4 core states:
 
-[ SEARCHING ] ──(ore detected)──> [ AIMING ] ──(centered)──> [ WALKING ]
-▲                                                           │
-│                                                     (prompt triggers)
-│                                                           ▼
-[ STATE_RESET ] <────────────────────────────────────────── [ COLLECTING ]
-
 ### 1. STATE_SEARCHING
 The bot scans the current frame for ore_template.png. 
 If no match passes the threshold, it executes a short forward step and a micro-rotation of the camera to scan the horizon. 
@@ -42,7 +36,7 @@ It filters them and selects the one closest to the vertical center of the screen
 The camera performs micro-adjustments left or right until the target enters the precise deadzone corridor.
 
 ### 3. STATE_WALKING
-Once the target is perfectly aligned, the bot engages the virtual joystick using long ADB swipe durations (1.75s) to advance rapidly. 
+Once the target is perfectly aligned, the bot engages the virtual joystick using long ADB swipe durations to advance further. 
 It re-verifies alignment after each step. 
 If the text disappears as the player gets too close, it takes a final blind step to trigger the interaction prompt.
 

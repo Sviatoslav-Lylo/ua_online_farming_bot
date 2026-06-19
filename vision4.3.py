@@ -220,7 +220,7 @@ def main():
             tap(OK_TAP_X, OK_TAP_Y)
             time.sleep(0.1)
             
-            print("[HARVEST] HARVEST...............................................")
+            print("[HARVEST] HARVEST" + '.' * 34)
             for _ in range(15):
                 tap(HARVEST_TAP_X, HARVEST_TAP_Y)
                 time.sleep(0.1)
@@ -233,8 +233,7 @@ def main():
             print(f"TIME: {EXECUTION_TIME:.2f} min.")
             print(f"ORE COUNT: {TOTAL_ORES_COUNTER}")
             print(f"RATE: {ORE_COEFFICIENT:.2f} ores/min")
-            print("*" * 50)
-            print("*" * 50)
+            print("*" * 50 + '\n' + "*" * 50)
             print("[HARVEST] Harvest complete. Searching for next targets.")
             state = STATE_SEARCHING
 
