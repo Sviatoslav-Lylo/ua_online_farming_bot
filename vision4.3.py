@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import csv
+import datetime
 import io
 import os
 import sys
@@ -23,6 +25,20 @@ HARVEST_TAP_X, HARVEST_TAP_Y = 1200, 570
 OK_COLOR_TARGET_BGR = (9, 185, 255)
 OK_COLOR_TOLERANCE = 25
 
+# ORE CLASSIFICATION 
+ROI_X1, ROI_Y1 = 1215, 960 # Range of interest (ROI)
+ROI_X2, ROI_Y2 = 1400, 1030
+
+RED_BACKGROUND_TARGET_RGB = (240, 40, 40) # coordinates for red background are the same as for "ok" button
+RED_BACKGROUND_TOLERANCE = 25
+
+ORE_TEMPLATES = {
+    "gold": cv2.imread("gold_template.png", cv2.IMREAD_COLOR),
+    "silver": cv2.imread("silver_template.png", cv2.IMREAD_COLOR),
+    "bronze": cv2.imread("bronze_template.png", cv2.IMREAD_COLOR)
+}
+CSV_FILENAME = "stats.csv"
+
 MOVE_CENTER_X = 360
 MOVE_CENTER_Y = 800
 MOVE_STEP_Y = 640  
@@ -31,6 +47,10 @@ STATE_SEARCHING = "SEARCHING"
 STATE_AIMING    = "AIMING"     
 STATE_WALKING   = "WALKING"    
 STATE_COLLECTING = "COLLECTING" 
+
+UNWANTED_NOTIFICATION_X = 1285
+UNWANTED_NOTIFICATION_Y = 720
+NOTIFICATION_INTERVAL_SEC = 180
 
 # ─────────────────────────────────────────────
 #  UTILITY FUNCTIONS (ADB AND GRAPHICS)
@@ -98,6 +118,60 @@ def is_ok_button_visible(scene_img):
         return all(abs(int(p) - int(t)) <= OK_COLOR_TOLERANCE for p, t in zip(pixel_bgr, OK_COLOR_TARGET_BGR))
     except:
         return False
+
+def classify_and_log_ore(scene_img, start_time):
+    if scene_img is None:
+        return
+
+    # Step 1: Check for stolen state via pixel color first
+    pixel_bgr = scene_img[(ROI_Y1 + ROI_Y2) / 2, (ROI_X1 + ROI_X2) / 2]
+    is_red = all(abs(int(p) - int(t)) <= RED_BACKGROUND_TOLERANCE for p, t in zip(pixel_bgr, RED_BACKGROUND_TARGET_RGB))
+    
+    if is_red:
+        ore_kind = "stolen"
+        print("[ANALYSIS] Ore was already mined by someone else (Red background).")
+    else:
+        # Step 2: Crop the banner region for text matching
+        roi = scene_img[ROI_Y1:ROI_Y2, ROI_X1:ROI_X2]
+        
+        best_score = 0.0
+        ore_kind = "unknown"
+        
+        # Step 3: Run multi-template comparison loop
+        for name, template in ORE_TEMPLATES.items():
+            if template is None:
+                continue
+            res = cv2.matchTemplate(roi, template, cv2.TM_CCOEFF_NORMED)
+            _, max_val, _, _ = cv2.minMaxLoc(res)
+            
+            if max_val > best_score:
+                best_score = max_val
+                ore_kind = name
+                
+        # Enforce threshold verification
+        if best_score < 0.75:
+            ore_kind = "unknown"
+            print(f"[ANALYSIS] Classification failed. Best match was too low: {best_score:.2f}")
+        else:
+            print(f"[ANALYSIS] Successfully identified ore type: {ore_kind.upper()} (Match: {best_score:.2f})")
+
+    # Step 4: Write metadata to CSV file
+    file_exists = os.path.exists(CSV_FILENAME)
+    try:
+        with open(CSV_FILENAME, mode="a", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            
+            # Write column headers only if creating a new file
+            if not file_exists:
+                writer.writerow(["timestamp", "ore_type", "runtime_minutes"])
+                
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            runtime_mins = (time.perf_counter() - start_time) / 60
+            
+            writer.writerow([timestamp, ore_kind, f"{runtime_mins:.2f}"])
+            print(f"[DATA] Saved entry to {CSV_FILENAME}")
+    except Exception as e:
+        print(f"[DATA] Error writing to CSV: {e}")
 
 # ─────────────────────────────────────────────
 #  CAMERA AND MOVEMENT CONTROL
@@ -220,7 +294,12 @@ def main():
             for _ in range(15):
                 tap(HARVEST_TAP_X, HARVEST_TAP_Y)
                 time.sleep(0.1)
-            
+
+
+            # DATA ANALYSIS INTERSECTION
+            post_harvest_img = take_screenshot_cv()
+            classify_and_log_ore(post_harvest_img, START_TIME)
+
             TOTAL_ORES_COUNTER += 1
             EXECUTION_TIME = (time.perf_counter() - START_TIME) / 60
             ORE_COEFFICIENT = TOTAL_ORES_COUNTER / EXECUTION_TIME
