@@ -189,6 +189,8 @@ def camera_correct_right():
 def make_forward_step(duration):
     swipe(MOVE_CENTER_X, MOVE_CENTER_Y, MOVE_CENTER_X, MOVE_STEP_Y, duration_ms=duration)
 
+def camera_tilt_down():
+    swipe(1500, 450, 1500, 550, duration_ms=150)
 
 # ─────────────────────────────────────────────
 #  MAIN BOT LOOP
@@ -318,6 +320,8 @@ def main():
             print(f"RATE: {ORE_COEFFICIENT:.2f} ores/min")
             print("*" * 50 + '\n' + "*" * 50)
             print("[HARVEST] Harvest complete. Searching for next targets.")
+
+            camera_tilt_down()
             state = STATE_SEARCHING
 
 if __name__ == "__main__":
