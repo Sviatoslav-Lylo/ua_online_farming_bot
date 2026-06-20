@@ -34,9 +34,9 @@ RED_BACKGROUND_TARGET_BGR = (40, 40, 240) # coordinates for red background are t
 RED_BACKGROUND_TOLERANCE = 25
 
 ORE_TEMPLATES = {
-    "gold": cv2.imread("gold_template.png", cv2.IMREAD_COLOR),
-    "silver": cv2.imread("silver_template.png", cv2.IMREAD_COLOR),
-    "bronze": cv2.imread("bronze_template.png", cv2.IMREAD_COLOR)
+    "gold": cv2.imread("templates/gold_template.png", cv2.IMREAD_COLOR),
+    "silver": cv2.imread("templates/silver_template.png", cv2.IMREAD_COLOR),
+    "bronze": cv2.imread("templates/bronze_template.png", cv2.IMREAD_COLOR)
 }
 CSV_FILENAME = "stats.csv"
 
@@ -222,9 +222,9 @@ def main():
         print("[ERR] ADB device not found.")
         sys.exit(1)
         
-    template_img = cv2.imread('ore_template.png', cv2.IMREAD_COLOR)
+    template_img = cv2.imread('templates/ore_template.png', cv2.IMREAD_COLOR)
     if template_img is None:
-        print("[ERR] Failed to find 'ore_template.png'.")
+        print("[ERR] Failed to find 'templates/ore_template.png'.")
         sys.exit(1)
         
     print("[INIT] Ready.")
