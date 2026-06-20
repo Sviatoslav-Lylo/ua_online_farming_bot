@@ -9,6 +9,7 @@ import struct
 import subprocess
 import cv2
 import numpy as np
+import pandas as pd
 
 # ─────────────────────────────────────────────
 #  COORDINATE AND PARAMETER SETTINGS
@@ -38,6 +39,14 @@ ORE_TEMPLATES = {
     "bronze": cv2.imread("bronze_template.png", cv2.IMREAD_COLOR)
 }
 CSV_FILENAME = "stats.csv"
+
+ORE_PRICES = {
+    "gold": 50000,      
+    "silver": 15000,
+    "bronze": 1000,
+    "stolen": 0,
+    "unknown": 0
+}
 
 MOVE_CENTER_X = 360
 MOVE_CENTER_Y = 800
@@ -119,7 +128,7 @@ def is_ok_button_visible(scene_img):
     except:
         return False
 
-def classify_and_log_ore(scene_img, start_time):
+def classify_and_log_ore(scene_img, start_time, df):
     if scene_img is None:
         return
 
@@ -147,13 +156,15 @@ def classify_and_log_ore(scene_img, start_time):
             if max_val > best_score:
                 best_score = max_val
                 ore_kind = name
-                
+
         # Enforce threshold verification
         if best_score < 0.75:
             ore_kind = "unknown"
             print(f"[ANALYSIS] Classification failed. Best match was too low: {best_score:.2f}")
         else:
             print(f"[ANALYSIS] Successfully identified ore type: {ore_kind.upper()} (Match: {best_score:.2f})")
+        
+        df.at[ore_kind, 'QUANTITY'] += 1
 
     # Step 4: Write metadata to CSV file
     file_exists = os.path.exists(CSV_FILENAME)
@@ -198,6 +209,8 @@ def camera_tilt_down():
 
 def main():
     TOTAL_ORES_COUNTER = 0
+    ORES_COUNTER_DF = pd.DataFrame({'QUANTITY' : [0, 0, 0, 0, 0]}, 
+                                   index=['bronze', 'silver', 'gold', 'unknown', 'stolen'])
     START_TIME = time.perf_counter()
 
     LAST_NOTIFICATION_CLEAR = time.perf_counter()
@@ -308,7 +321,11 @@ def main():
             # DATA ANALYSIS INTERSECTION
             time.sleep(0.5)
             post_harvest_img = take_screenshot_cv()
-            classify_and_log_ore(post_harvest_img, START_TIME)
+            classify_and_log_ore(post_harvest_img, START_TIME, ORES_COUNTER_DF)
+
+            TOTAL_MONEY = 0
+            for kind, price in ORE_PRICES.items():
+                TOTAL_MONEY += ORES_COUNTER_DF.at[kind, 'QUANTITY'] * price
 
             TOTAL_ORES_COUNTER += 1
             EXECUTION_TIME = (time.perf_counter() - START_TIME) / 60
@@ -317,6 +334,8 @@ def main():
             print("*" * 20 + "STATISTICS" + "*" * 20)
             print(f"TIME: {EXECUTION_TIME:.2f} min.")
             print(f"ORE COUNT: {TOTAL_ORES_COUNTER}")
+            print(ORES_COUNTER_DF)
+            print(f"TOTAL MONEY EARNED: {TOTAL_MONEY}")
             print(f"RATE: {ORE_COEFFICIENT:.2f} ores/min")
             print("*" * 50 + '\n' + "*" * 50)
             print("[HARVEST] Harvest complete. Searching for next targets.")
