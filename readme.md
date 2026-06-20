@@ -1,62 +1,70 @@
 # Miner Bot v4.3
 
-A lightweight, headless State Machine bot for automated resource gathering in a 3D first-person mobile game environment. 
-It operates externally via ADB (Android Debug Bridge) and uses OpenCV Template Matching for precise camera alignment.
+A lightweight, headless State Machine bot for automated resource gathering in a 3D first-person mobile game environment.
+It operates externally via ADB (Android Debug Bridge) and uses OpenCV template matching for camera alignment.
 
 ---
 
 ## Overview & Tech Specs
 
-* **Game Resolution:** 2340 x 1080 (Landscape orientation)
-* **Target Detection:** Uses ore_template.png (a small crop of the text "Руда"). This completely bypasses standard color-filtering (HSV) failures caused by dynamic day/night light cycles.
-* **Execution Environments:**
-  * **PC Mode:** Computer-driven automation via USB cable.
-  * **Autonomous Mode:** Runs entirely on the Android device via Termux using Local ADB (127.0.0.1).
+- **Game Resolution:** 2340 x 1080 (Landscape orientation)
+- **Target Detection:** Uses templates/ore_template.png (detects the on-screen ore label). Additional per-ore templates used for classification: templates/gold_template.png, templates/silver_template.png, templates/bronze_template.png.
+- **Execution Modes:**
+  - **PC Mode:** Run from a computer connected over USB using ADB.
+  - **Autonomous Mode:** Run on-device (Termux + local ADB).
 
-### Virtual Controls Configuration
-* **Joystick Center:** (360, 800) -> Forward Movement Vector: (360, 640)
-* **Interaction Button (OK):** (1500, 1000)
-* **Harvest Button (Mine):** (1200, 570)
+### Virtual Controls & Coordinates
+- **Joystick Center:** (360, 800) — forward swipe vector ends at (360, 640).
+- **Interaction Button (OK):** (1500, 1000)
+- **Harvest Button (Mine):** (1200, 570)
+- **Notification dismiss (anti-block):** (1285, 720) — tapped periodically to clear popups.
 
 ---
 
 ## Core Algorithm (State Machine)
 
-The bot operates as a continuous image-processing loop, fetching raw screen frames via adb exec-out screencap -p directly into memory. 
-It transitions dynamically between 4 core states:
+The bot continuously captures raw frames via `adb exec-out screencap -p` and transitions between four primary states: `STATE_SEARCHING`, `STATE_AIMING`, `STATE_WALKING`, and `STATE_COLLECTING`. The logic in `vision4.py` implements multi-template matching, center-priority selection, micro camera corrections, blind final steps, and harvest automation.
 
-### 1. STATE_SEARCHING
-The bot scans the current frame for ore_template.png. 
-If no match passes the threshold, it executes a short forward step and a micro-rotation of the camera to scan the horizon. 
-Once detected, it locks onto the coordinates and transitions to AIMING.
-
-### 2. STATE_AIMING (Multi-Target Fix)
-If multiple "Ore" text elements are present on screen, the bot utilizes numpy to locate all active matches. 
-It filters them and selects the one closest to the vertical center of the screen (X = 1170). 
-The camera performs micro-adjustments left or right until the target enters the precise deadzone corridor.
-
-### 3. STATE_WALKING
-Once the target is perfectly aligned, the bot engages the virtual joystick using long ADB swipe durations to advance further. 
-It re-verifies alignment after each step. 
-If the text disappears as the player gets too close, it takes a final blind step to trigger the interaction prompt.
-
-### 4. STATE_COLLECTING
-This state holds the highest execution priority. 
-The moment the targeted pixel on the "OK" button area turns yellow, all movement ceases. 
-The bot immediately taps "OK", executes 15 rapid harvesting taps on the action button, tracks real-time efficiency metrics (Ores/Min), and resets back to SEARCHING.
+Key behaviors:
+- When multiple matches exist, the bot chooses the match closest to the screen center (X = 1170).
+- Classification after harvest uses per-ore templates and a red-background check to detect already-mined ("stolen") nodes.
+- Statistics are accumulated in-memory and appended to timestamped CSV files in the `statistics/` folder.
 
 ---
 
-## Anti-Stuck Protection
+## Data & Templates
 
-If the target text disappears or the player gets blocked by geometric obstacles during the WALKING phase, a failsafe counter monitors execution. 
-If the "OK" prompt fails to appear within 3 consecutive frames, the bot forces a state reset back to STATE_SEARCHING to find another resource node.
+- Templates directory: `templates/` — required files:
+  - `ore_template.png` (silhouette/text search)
+  - `gold_template.png`, `silver_template.png`, `bronze_template.png` (classification)
+- Statistics directory: `statistics/` — the bot appends harvest events to `statistics/stats_<YYYYMMDD_HHMMSS>.csv` containing columns: `timestamp`, `ore_type`, and `runtime_minutes`.
 
 ---
 
 ## Prerequisites & Installation
 
 ### For PC Setup (Windows/Linux/Mac):
-Make sure you have Python 3 and the required dependencies installed:
+Make sure you have Python 3 and the required Python dependencies installed:
 ```bash
-pip install opencv-python numpy pillow
+pip install opencv-python numpy pandas
+```
+
+- Ensure `adb` is installed and available on your PATH.
+- Ensure the `templates/` and `statistics/` folders exist in the repository root and contain the required templates.
+
+### Running
+```bash
+python vision4.py
+```
+
+- The script waits 5 seconds on start to allow you to switch to the target device window.
+- Stop the bot with Ctrl+C.
+
+---
+
+## Notes
+
+- The script writes per-run CSV logs to the `statistics/` folder. Keep an eye on disk usage if running long sessions.
+- Adjust coordinates at the top of `vision4.py` if your device resolution or UI layout differs.
+
+If you'd like, I can replace the original `readme.md` with this updated copy, or try the patch again.
