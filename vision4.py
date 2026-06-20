@@ -38,7 +38,9 @@ ORE_TEMPLATES = {
     "silver": cv2.imread("templates/silver_template.png", cv2.IMREAD_COLOR),
     "bronze": cv2.imread("templates/bronze_template.png", cv2.IMREAD_COLOR)
 }
-CSV_FILENAME = "stats.csv"
+
+session_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+CSV_FILENAME = os.path.join("statistics", f"stats_{session_time}.csv")
 
 ORE_PRICES = {
     "gold": 50000,      
