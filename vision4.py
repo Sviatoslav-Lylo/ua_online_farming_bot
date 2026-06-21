@@ -166,7 +166,7 @@ def classify_and_log_ore(scene_img, start_time, df):
         else:
             print(f"[ANALYSIS] Successfully identified ore type: {ore_kind.upper()} (Match: {best_score:.2f})")
         
-        df.at[ore_kind, 'QUANTITY'] += 1
+    df.at[ore_kind, 'QUANTITY'] += 1
 
     # Step 4: Write metadata to CSV file
     file_exists = os.path.exists(CSV_FILENAME)
@@ -317,7 +317,7 @@ def main():
             print("[HARVEST] HARVEST" + '.' * 34)
             for _ in range(15):
                 tap(HARVEST_TAP_X, HARVEST_TAP_Y)
-                time.sleep(0.1)
+                time.sleep(0.01)
 
 
             # DATA ANALYSIS INTERSECTION
