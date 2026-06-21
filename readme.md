@@ -66,5 +66,3 @@ python vision4.py
 
 - The script writes per-run CSV logs to the `statistics/` folder. Keep an eye on disk usage if running long sessions.
 - Adjust coordinates at the top of `vision4.py` if your device resolution or UI layout differs.
-
-If you'd like, I can replace the original `readme.md` with this updated copy, or try the patch again.
