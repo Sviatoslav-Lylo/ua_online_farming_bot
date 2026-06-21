@@ -1,2 +1,0 @@
-- a small step while rotation not every time
-- money per minute
