@@ -338,6 +338,7 @@ def main():
             print(f"ORE COUNT: {TOTAL_ORES_COUNTER}")
             print(ORES_COUNTER_DF)
             print(f"TOTAL MONEY EARNED: {TOTAL_MONEY}")
+            print(f"Money per minute: {(TOTAL_MONEY/EXECUTION_TIME):.2f}")
             print(f"RATE: {ORE_COEFFICIENT:.2f} ores/min")
             print("*" * 50 + '\n' + "*" * 50)
             print("[HARVEST] Harvest complete. Searching for next targets.")
