@@ -9,9 +9,9 @@ import glob
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# ─────────────────────────────────────────────────────────────
+#───────────────────────────────────────────────────────────
 # CONFIGURATION & CONSTANTS
-# ─────────────────────────────────────────────────────────────
+#───────────────────────────────────────────────────────────
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 INPUT_DIR = os.path.join(PROJECT_ROOT, "statistics")
 OUTPUT_DIR = os.path.join(PROJECT_ROOT, "analytics_output")
@@ -64,7 +64,7 @@ def generate_dashboard(df, session_title, output_filename):
     
     gs = fig.add_gridspec(3, 3, height_ratios=[1.1, 1.0, 1.0])
 
-    # ── PIE CHART 1: Quantity Proportions (All nodes included) ──
+    # PIE CHART 1: Quantity Proportions (All nodes included)
     ax_pie_qty = fig.add_subplot(gs[0, 0])
     labels_qty = [f"{ore.upper()} ({count})" for ore, count in counts.items()]
     ax_pie_qty.pie(
@@ -77,7 +77,7 @@ def generate_dashboard(df, session_title, output_filename):
     )
     ax_pie_qty.set_title("Harvested Node Proportions", fontsize=12, fontweight='bold', pad=10)
 
-    # ── PIE CHART 2: Financial Contribution ( Profitable nodes only ) ──
+    # PIE CHART 2: Financial Contribution ( Profitable nodes only )
     ax_pie_cash = fig.add_subplot(gs[0, 1])
     if not earnings_filtered.empty:
         labels_cash = [f"{ore.upper()} (${val:,})" for ore, val in earnings_filtered.items()]
@@ -93,7 +93,7 @@ def generate_dashboard(df, session_title, output_filename):
         ax_pie_cash.text(0.5, 0.5, "Zero Market Value Collected", ha='center', va='center', color='red', fontsize=12)
     ax_pie_cash.set_title("Revenue Distribution (Virtual Currency)", fontsize=12, fontweight='bold', pad=10)
 
-    # ── METRIC SUMMARY BOX (Integrated Session Metadata) ──
+    # METRIC SUMMARY BOX (Integrated Session Metadata)
     ax_summary = fig.add_subplot(gs[0, 2])
     ax_summary.axis('off')
     
@@ -109,26 +109,48 @@ def generate_dashboard(df, session_title, output_filename):
         bbox=dict(boxstyle="round,pad=1.2", facecolor="#ffffff", edgecolor="#dcdcdc")
     )
 
-    # ── FREQUENCY HISTOGRAMS (24 Hourly Uniform Column Slices) ──
+    # REGION: TIME DURATION NORMALIZATION LOGIC
+    # Identify continuous independent sessions (splits concatenated data securely)
+    session_marks = (df['timestamp'].diff() > pd.Timedelta(minutes=30)) | (df['runtime_minutes'].diff() < 0)
+    df['session_id'] = session_marks.cumsum()
+    
+    # Calculate exact active minutes spent in each hour slot across all sessions
+    total_hourly_mins = {h: 0.0 for h in range(24)}
+    for _, s_df in df.groupby('session_id'):
+        s_start = s_df['timestamp'].min()
+        s_end = s_df['timestamp'].max()
+        if pd.isna(s_start) or pd.isna(s_end):
+            continue
+            
+        current = s_start.replace(minute=0, second=0, microsecond=0)
+        while current <= s_end:
+            h = current.hour
+            int_start = max(s_start, current)
+            int_end = min(s_end, current + pd.Timedelta(hours=1))
+            duration = (int_end - int_start).total_seconds() / 60.0
+            if duration > 0:
+                total_hourly_mins[h] += duration
+            current += pd.Timedelta(hours=1)
+
+    # HOURLY PERFORMANCE HISTOGRAMS (Normalized Relative Frequency)
     # Axis configuration helper function
     def format_histogram_axis(ax, title, color_theme):
         ax.set_title(title, fontsize=11, fontweight='semibold')
         ax.set_xticks(range(24))
         ax.set_xlim(-0.5, 23.5)
         ax.set_xlabel("Hour of Day (24h format)", fontsize=9)
-        ax.set_ylabel("Average Events per Day", fontsize=9)
+        ax.set_ylabel("Avg Ores / Hour", fontsize=9)
         ax.grid(axis='y', linestyle='--', alpha=0.5)
 
-    # 1. Composite Timeline (Average events per hour across days)
-    # Compute average counts per hour normalized by day (average events per day for each hour)
-    df_dates = df.copy()
-    df_dates['date'] = df_dates['timestamp'].dt.date
-    per_day_hour = df_dates.groupby([df_dates['date'], df_dates['hour']]).size()
-    hourly_all = per_day_hour.groupby(level=1).mean().reindex(range(24), fill_value=0)
-
+    # 1. Composite Timeline (All Ores Aggregated)
     ax_hist_all = fig.add_subplot(gs[1, 0])
-    ax_hist_all.bar(range(24), hourly_all, color='#4682B4', edgecolor='#2f4f4f', alpha=0.9)
-    format_histogram_axis(ax_hist_all, "Timeline: Average Events Per Hour (by day)", '#4682B4')
+    counts_all = df['hour'].value_counts().reindex(range(24), fill_value=0)
+    hourly_rate_all = [
+        counts_all[h] / (total_hourly_mins[h] / 60.0) if total_hourly_mins[h] > 0 else 0.0 
+        for h in range(24)
+    ]
+    ax_hist_all.bar(range(24), hourly_rate_all, color='#4682B4', edgecolor='#2f4f4f', alpha=0.9)
+    format_histogram_axis(ax_hist_all, "Hourly Average: COMBINED TOTAL YIELD", '#4682B4')
 
     # 2. Sequential distribution layout map for specific types
     layout_mapping = [
@@ -142,13 +164,14 @@ def generate_dashboard(df, session_title, output_filename):
     for ore_name, grid_cell in layout_mapping:
         ax_sub = fig.add_subplot(grid_cell)
         df_sub = df[df['ore_type'] == ore_name]
-        df_sub_dates = df_sub.copy()
-        df_sub_dates['date'] = df_sub_dates['timestamp'].dt.date
-        per_day_hour_sub = df_sub_dates.groupby([df_sub_dates['date'], df_sub_dates['hour']]).size()
-        hourly_sub = per_day_hour_sub.groupby(level=1).mean().reindex(range(24), fill_value=0)
-
-        ax_sub.bar(range(24), hourly_sub, color=VISUAL_COLORS[ore_name], edgecolor='#333333', alpha=0.9)
-        format_histogram_axis(ax_sub, f"Timeline: Avg Events Per Hour - {ore_name.upper()}", VISUAL_COLORS[ore_name])
+        counts_sub = df_sub['hour'].value_counts().reindex(range(24), fill_value=0)
+        hourly_rate_sub = [
+            counts_sub[h] / (total_hourly_mins[h] / 60.0) if total_hourly_mins[h] > 0 else 0.0 
+            for h in range(24)
+        ]
+        
+        ax_sub.bar(range(24), hourly_rate_sub, color=VISUAL_COLORS[ore_name], edgecolor='#333333', alpha=0.9)
+        format_histogram_axis(ax_sub, f"Hourly Average: {ore_name.upper()}", VISUAL_COLORS[ore_name])
 
     plt.tight_layout()
     if os.path.isabs(output_filename):
@@ -205,7 +228,7 @@ def main():
             print(df['ore_type'].value_counts().reindex(ORE_TYPES, fill_value=0).to_string())
             print(f"-------------------------------------------")
             
-                    # Generate the dashboard file for this individual log in the session-specific output directory
+            # Generate the dashboard file for this individual log in the session-specific output directory
             dashboard_name = filename.replace(".csv", "_dashboard.png")
             dashboard_path = os.path.join(SESSION_OUTPUT_DIR, dashboard_name)
             generate_dashboard(df, f"Individual Session File: {filename}", dashboard_path)
